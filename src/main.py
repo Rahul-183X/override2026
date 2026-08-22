@@ -73,7 +73,7 @@ def run_date_screen_temporarily():
     show_cursor = True
 
     # Setup milestones
-    duration_limit = 100000 # Run for 10 seconds (10,000 ms)
+    duration_limit = 30000 # Run for 10 seconds (10,000 ms)
     blink_interval = 250   # Blink speed
 
     ### Bind all the buttons for user inputs
@@ -404,6 +404,8 @@ def time_reset() :
 """
 
 def sd_card ():
+    global cur_date #NOTE: without this line date will not be updated in the recent_files
+    global file_name #NOTE: without this line, all new writings happen in default.csv in global
     if controller_1.buttonA.pressed:
         if brain.sdcard.is_inserted():
             file_name = "{:02d}".format(cur_date[0]) +"-" +\
@@ -416,6 +418,14 @@ def sd_card ():
                     file.write("timestamp,arm_position_deg,arm_velocity_rpm,arm_torque_nm,arm_power_w")
                     print("File saved as:" +file_name)
                     print(file_name)  
+
+                with open("recent_file.txt","w") as recent_file:
+                        last_file_date = "{:02d}".format(cur_date[0]) +"-" +\
+                                    "{:02d}".format(cur_date[1]) +"-" +\
+                                    "{:02d}".format(cur_date[2]) +"-" +\
+                                    "{:02d}".format(cur_date[3]) +"-" +\
+                                    "{:02d}".format(cur_date[4])
+                        recent_file.write(last_file_date)
 
             except Exception as e:
                 print("Error saving file: " + str(e))
@@ -435,7 +445,8 @@ def confirm():
 #######################################
 
 def lift_weight():
-    arm_motor = Motor(Ports.PORT9, GearSetting.RATIO_18_1, False)
+    global file_name
+    arm_motor = Motor(Ports.PORT3, GearSetting.RATIO_18_1, False)
     arm_motor.set_stopping(BrakeType.HOLD)
     arm_motor.set_velocity(50, PERCENT)
 
@@ -458,17 +469,17 @@ def lift_weight():
         power = arm_motor.power(PowerUnits.WATT)
 
         # Format log entry
-        log_entry = "{:.3f}".format(t_stamp) +"-" +\
-                                "{:.2f}".format(pos) +"-" +\
-                                "{:.2f}".format(vel) +"-" +\
-                                "{:.3f}".format(torque) +"-" +\
-                                "{:.3f}".format(power)
+        log_entry = "{:.3f}".format(t_stamp) +"," +\
+                                "{:.2f}".format(pos) +"," +\
+                                "{:.2f}".format(vel) +"," +\
+                                "{:.3f}".format(torque) +"," +\
+                                "{:.3f}".format(power)+"\n"
 
-        print(log_entry)
+        #print(log_entry)
         
         # Append attributes to log file on SD card
         try:
-            with open(log_entry, "a") as f:
+            with open(file_name, "a") as f:
                 f.write(log_entry)
         except Exception:
                 brain.screen.print("File write failed")
@@ -523,7 +534,7 @@ def lift_weight():
 
 experiment()
 run_date_screen_temporarily()
-# lift_weight()
+lift_weight()
 # date_screen_temporarily() hold all the other defs, so when it timed runs, all defs run together
 
 
