@@ -44,6 +44,7 @@ years = 26
 cur_date=[years, months, days,hours,minutes]
 #cur_col = controller_1.screen.column()
 
+log_file_created = False
 column_position = controller_1.screen.column()
 row_position = controller_1.screen.row()
 file_name = "default.csv" #
@@ -55,7 +56,7 @@ def run_date_screen_temporarily():
     """Intializes the screen and 
        Update the current date on controller screen. 
        This """
-    global cur_date, screen_lock, column_position 
+    global cur_date, screen_lock, column_position, log_file_created 
     #NOTE: if the global column position is not used , a local copy will override this. resulting in screen getting reset to begin
 
     controller_1.screen.clear_screen()
@@ -110,11 +111,15 @@ def run_date_screen_temporarily():
             #NOTE: if the wait is faster, the blinking effect will not be observed 
             screen_lock = False
 
+        if log_file_created:
+            break
+
+
     controller_1.screen.clear_screen()
 
 
     ### Cleanup button binding
-    # controller_1.buttonUp.pressed("")
+    # controller_1.buttonUp.pressed(None)
     # controller_1.buttonDown.pressed(None)
     # controller_1.buttonLeft.pressed(None)
     # controller_1.buttonRight.pressed(None)
@@ -128,6 +133,9 @@ def increment_days():
     """
     global months, days, file_numb, setup, column_position, row_position, screen_lock
 
+    #There is no need for this function, when log file is already created
+    if log_file_created:
+        return
     # I had a problem, the print block automatically moves the cursor to the next coulum automatically
     # To solve this, I made a new variable in each of the incremental sections, as " coulumn "
     # This sets the current coulumn position as a variable
@@ -196,6 +204,10 @@ def decrement_days():
     """
     global months, days, file_numb, setup, column_position, row_position, screen_lock
 
+    #There is no need for this function, when log file is already created
+    if log_file_created:
+        return
+    
     # I had a problem, the print block automatically moves the cursor to the next coulum automatically
     # To solve this, I made a new variable in each of the incremental sections, as " coulumn "
     # This sets the current coulumn position as a variable
@@ -240,38 +252,6 @@ def decrement_days():
     controller_1.screen.set_cursor(1,coulumn)
         #screen_lock = False
 
-
-def decrement_days_dummy():
-    """
-    Decrements the day value.
-    """
-
-     # I had a problem, the print block automatically moves the cursor to the next coulum automatically
-        # To solve this, I made a new variable in each of the incremental sections, as " coulumn "
-        # This sets the current coulumn position as a variable
-        # That way, I can set the coulumn position after the print() blocks to the position before
-        # This variable has to be kept local
-
-    global months, days, file_numb, setup, column_position, row_position
-
-    column_position = controller_1.screen.column()
-    index = int(column_position // 3)-1
-    if index <=0:
-            index =0
-
-    date_part = (cur_date[index] - 1 +31) % 31
-
-    column = column_position
-
-    #days = (days -1 + 31) % 31
-    cur_date[index] = date_part 
-    print("column_position:"+str(column_position) +"idx:" +str(index))
-
-    controller_1.screen.set_cursor(1, index*3 )
-    controller_1.screen.print("{:02d}".format(date_part))
-
-    # print ("Days: " + "{:02d}".format(days))
-    controller_1.screen.set_cursor(1,column)
 
 def move_cursor_left():
     """
@@ -333,14 +313,13 @@ def move_cursor_right():
 
 
 
-def experiment() :
+def initialize() :
+    """
+    Initialize the system by creating an initial storage log file(recent_file.txt) to track time history
+
+    """
     global cur_date
 
-    content_to_save = "{:02d}".format(cur_date[0]) +"-" +\
-                                    "{:02d}".format(cur_date[1]) +"-" +\
-                                    "{:02d}".format(cur_date[2]) +"-" +\
-                                    "{:02d}".format(cur_date[3]) +"-" +\
-                                    "{:02d}".format(cur_date[4])
 
     if brain.sdcard.exists("recent_file.txt"):
         #brain.sdcard.exists
@@ -350,62 +329,54 @@ def experiment() :
             #file.read("timestamp,arm_position_deg,arm_velocity_rpm,arm_torque_nm,arm_power_w")
                 content = file.read(14)
                 print("----->"+str(content))
-            #print(file_name)  
 
-            date_part = content_to_save.split("-")[-1]
-            print("date :"+str(cur_date)+ " mm:"+date_part )
+
+            #FIXED: when recent_file exist. read the content and increment the minute
+
+            content_as_list = content.split('-')
+            print("content_as_list"+str(content_as_list))
+            try:
+                for idx in range(4):
+                    cur_date[idx]=int(content_as_list[idx])
+                    print("cur_date["+str(idx)+"]="+str(cur_date[idx]))
+                print("came here")  
+
+            except Exception as e:
+                    print("received exception at 334 "+str(e.with_traceback))
+
+
+
+            date_part = content.split("-")[-1]
+            print("date :"+str(content)+ " mm:"+date_part )
             cur_date[4] = (int(date_part) +1) % 59
             print("incremented date :"+str(cur_date)+ " mm:"+date_part )
 
 
         except Exception as e:
-            print("Error reading file: " + str(e))
+            print("Error reading file: " + str(e.with_traceback))
 
     else:
         print("no such file in sd Card")
+        brain.screen.print("Dude! Did you insert the SD card ? ")
         brain.sdcard.savefile("recent_file.txt")
         #brain.sdcard.("recent_file.txt", )
         #brain.sdcard.file.read 
-        with open("recent_file.txt","w") as file:
-            file.write(content_to_save)
+
+    # #save the current date into the recent file.txt    !!!!!! is it even required ?
+    # with open("recent_file.txt","w") as file:
+    #     recent_file_name = "{:02d}".format(cur_date[0]) +"-" +\
+    #                             "{:02d}".format(cur_date[1]) +"-" +\
+    #                             "{:02d}".format(cur_date[2]) +"-" +\
+    #                             "{:02d}".format(cur_date[3]) +"-" +\
+    #                             "{:02d}".format(cur_date[4])
+    #     file.write(recent_file_name)
 
 
          
-    
-        
-
-#experiment()
-
-
-"""
-def time_reset() :
-    column_position = controller_1.screen.column()
-    index = int(column_position // 3)-1
-
-    if index <=0:
-        index =0
-
-    if index == 0:
-        
-
-
-    elif index == 1:
-
-
-    elif index == 2:
-
-
-    elif index == 3:
-
-
-
-    elif index == 4:
-
-"""
-
 def sd_card ():
     global cur_date #NOTE: without this line date will not be updated in the recent_files
     global file_name #NOTE: without this line, all new writings happen in default.csv in global
+    global log_file_created
     if controller_1.buttonA.pressed:
         if brain.sdcard.is_inserted():
             file_name = "{:02d}".format(cur_date[0]) +"-" +\
@@ -415,7 +386,8 @@ def sd_card ():
                                     "{:02d}".format(cur_date[4]) + ".csv"
             try:
                 with open(file_name, "w") as file:
-                    file.write("timestamp,arm_position_deg,arm_velocity_rpm,arm_torque_nm,arm_power_w")
+                    #write the CSV file header
+                    file.write("timestamp,arm_position_deg,arm_velocity_rpm,arm_torque_nm,arm_power_w,arm_current\n")
                     print("File saved as:" +file_name)
                     print(file_name)  
 
@@ -435,12 +407,8 @@ def sd_card ():
     else:
         controller_1.screen.print("Please connect SD card")
 
+    log_file_created = True
 
-def confirm():
-    global months, days, file_numb, setup, column_position, row_position
-    print ("Confirm Date: " + " {:4d}".format(years) + "/" + "{:02d}".format(months) + "/" + "{:02d}".format(days) )
-    print ("Days: " + "{:02d}".format(days))
-    print ("Column: " + str(column_position) + " Row: " + str(row_position))
 
 #######################################
 
@@ -466,14 +434,17 @@ def lift_weight():
         pos = arm_motor.position(DEGREES)
         vel = arm_motor.velocity(RPM)
         torque = arm_motor.torque(TorqueUnits.NM)
-        power = arm_motor.power(PowerUnits.WATT)
+        power = arm_motor.power(PowerUnits.WATT) 
+        current = arm_motor.current(CurrentUnits.AMP)
 
         # Format log entry
         log_entry = "{:.3f}".format(t_stamp) +"," +\
                                 "{:.2f}".format(pos) +"," +\
                                 "{:.2f}".format(vel) +"," +\
                                 "{:.3f}".format(torque) +"," +\
-                                "{:.3f}".format(power)+"\n"
+                                "{:.3f}".format(power)+"," +\
+                                "{:.3f}".format(current)+"\n"
+
 
         #print(log_entry)
         
@@ -481,50 +452,10 @@ def lift_weight():
         try:
             with open(file_name, "a") as f:
                 f.write(log_entry)
-        except Exception:
+        except Exception as e:
                 brain.screen.print("File write failed")
-                print("file write failed")
+                print("file write failed exception"+str(e.with_traceback))
 
-    
-"""
-#def set_date_sd_card():
-    global cur_date
-
-    print("Last date: ")
-    # On the line below I was trying to get the sd card to check the files it had.
-    # I left because I had to go eat
-    #def load_time_from_largest_file():
-    #Load time from largest (most recent) file on SD card.
-    
-    try:
-        # List all files on SD card
-        files = os.listdir('/')
-        
-        # Filter CSV files
-        csv_files = [f for f in files if f.endswith('.csv')]
-        
-        if not csv_files:
-            print("No saved files found")
-            return False
-        
-        # Find largest file name (most recent)
-        largest_file = max(csv_files)
-        
-        # Parse file name: YY-MM-DD-HH-MM.csv
-        parts = largest_file.replace('.csv', '').split('-')
-        
-        # Extract and update
-        cur_date[0] = int(parts[0])  # Years
-        cur_date[1] = int(parts[1])  # Months
-        cur_date[2] = int(parts[2])  # Days
-        cur_date[3] = int(parts[3])  # Hours
-        cur_date[4] = int(parts[4])  # Minutes
-        
-        return True
-    except Exception as e:
-        print(f"Error: {e}")
-        return False
-"""
 # Call at startup
 #load_time_from_largest_file()
 
@@ -532,7 +463,7 @@ def lift_weight():
 
 
 
-experiment()
+initialize()
 run_date_screen_temporarily()
 lift_weight()
 # date_screen_temporarily() hold all the other defs, so when it timed runs, all defs run together
