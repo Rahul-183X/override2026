@@ -50,7 +50,7 @@ row_position = controller_1.screen.row()
 file_name = "default.csv" #
 
 screen_lock = False #custom mutex api
-
+inertial_1 = Inertial(Ports.PORT17)
 
 def run_date_screen_temporarily():
     """Intializes the screen and 
@@ -463,11 +463,6 @@ def lift_weight():
 
 
 
-initialize()
-run_date_screen_temporarily()
-lift_weight()
-# date_screen_temporarily() hold all the other defs, so when it timed runs, all defs run together
-
 
 
 
@@ -544,3 +539,79 @@ def sd_card ():
 
 
 ## ------------------------------------------------------------------------------------------------------ ##
+
+
+def Move_Forward():
+    global file_name
+    front_right = Motor(Ports.PORT10, GearSetting.RATIO_18_1, False)
+    back_left = Motor(Ports.PORT11, GearSetting.RATIO_18_1, False)
+
+    front_right.set_stopping(BrakeType.HOLD)
+    back_left.set_stopping(BrakeType.HOLD)
+    front_right.set_velocity(50, PERCENT)
+    back_left.set_velocity(50, PERCENT)
+
+    while True:
+        if controller_1.buttonUp.pressing():
+            front_right.spin(DirectionType.FORWARD)
+            back_left.spin(DirectionType.FORWARD)
+        elif controller_1.buttonDown.pressing():
+            front_right.spin(DirectionType.REVERSE)
+            back_left.spin(DirectionType.REVERSE)
+        else:
+            front_right.stop()
+            back_left.stop()
+            break
+
+def callibrate_sensors():
+    global inertial_1
+    inertial_1 = Inertial(Ports.PORT17)
+
+    if inertial_1.installed():
+        print("Inertial sensor is installed.")
+        # Start calibration.
+        inertial_1.calibrate()
+    else:
+        print("Inertial sensor is not installed.")
+
+def wait_for_calibration():
+        global inertial_1
+        while inertial_1.is_calibrating():
+            print("Calibrating...")
+            wait(100, MSEC)
+        print("Calibration complete.")
+        brain.screen.print("Calibration complete.")
+
+def drive_straight(direction=FORWARD, dist=1, units=TURNS):
+    rot=inertial_1.rotation()
+    FRONT_RIGHT = Motor(Ports.PORT10, GearSetting.RATIO_18_1, False)
+    FRONT_LEFT = Motor(Ports.PORT1, GearSetting.RATIO_18_1, False)
+    BACK_LEFT = Motor(Ports.PORT11, GearSetting.RATIO_18_1, False)
+    BACK_RIGHT = Motor(Ports.PORT20, GearSetting.RATIO_18_1, False)
+    FRONT_RIGHT.spin_for(direction, dist, TURNS, wait=False)
+    BACK_RIGHT.spin_for(direction, dist, TURNS, wait=False)
+
+    if direction == FORWARD:
+        direction = REVERSE
+    else:
+        direction = FORWARD
+
+    FRONT_LEFT.spin_for(direction, dist, TURNS, wait=False)
+    BACK_LEFT.spin_for(direction, dist, TURNS, wait=True)    
+    wait(1000, MSEC)
+    rot=inertial_1.rotation()
+
+    brain.screen.print("Rotation: {:.2f} degrees".format(rot))
+
+    return
+
+
+
+initialize()
+callibrate_sensors()
+run_date_screen_temporarily()
+wait_for_calibration()
+
+#lift_weight()
+# date_screen_temporarily() hold all the other defs, so when it timed runs, all defs run together
+drive_straight(FORWARD, 1, TURNS)
